@@ -196,6 +196,19 @@
   .toast.show { transform: translate(-50%, 0); }
   @media (min-width: 900px) { .tabbar { display: none; } main { padding-bottom: 40px; } }
 
+  html, body { overflow-x: hidden; }
+  .ytwrap iframe { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; border: 0; }
+  @media (max-width: 899px) {
+    header { margin: 8px 8px 0; }
+    .logo { font-size: 16px; }
+    .search { top: 8px; left: calc(100% - 86px); width: 36px; height: 36px; }
+    header.open .logo { left: 12px; font-size: 15px; transform: translate(0, -50%); }
+    header.open .search { left: 104px; width: calc(100% - 152px); }
+    header #openSettings { right: 0; top: 8px; width: 36px; height: 36px; }
+    .watch, .watch > div { min-width: 0; max-width: 100%; }
+    #playerBox { width: 100%; }
+    .view { padding-left: 12px; padding-right: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -330,7 +343,10 @@
   const KEY = { yt: '' };
   const KEY_NAME = 'gudstube_yt_key';
   const NATIVE = { on: false };
-  try { NATIVE.on = localStorage.getItem('gudstube_native') === '1'; } catch (e) {}
+  try {
+    const saved = localStorage.getItem('gudstube_native');
+    NATIVE.on = saved === null ? window.innerWidth < 900 : saved === '1';
+  } catch (e) {}
   try { KEY.yt = localStorage.getItem(KEY_NAME) || ''; } catch (e) {}
 
   // ---------- helpers ----------
@@ -734,7 +750,9 @@
   });
   $('fsBtn').addEventListener('click', () => {
     const b = $('playerBox');
-    if (document.fullscreenElement) document.exitFullscreen(); else if (b.requestFullscreen) b.requestFullscreen();
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    if (b.requestFullscreen) { b.requestFullscreen().catch(() => {}); return; }
+    toast('Is phone par player ka fullscreen native player mein milega. Settings mein native player on karein.');
   });
 
   function startTick() {
@@ -828,6 +846,20 @@
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function () { if (currentId) loadPlayer(currentId); };
+
+  // ---------- Pinch to zoom (pinch out to fill the frame) ----------
+  (function () {
+    const cover = $('cover');
+    let d0 = 0, s0 = 1, scale = 1;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const wrap = () => document.querySelector('.ytwrap');
+    function apply(s) { scale = s; wrap().style.transform = s > 1.01 ? 'scale(' + s + ')' : ''; }
+    cover.addEventListener('touchstart', e => { if (e.touches.length === 2) { d0 = dist(e.touches); s0 = scale; } }, { passive: true });
+    cover.addEventListener('touchmove', e => {
+      if (e.touches.length === 2 && d0) { e.preventDefault(); apply(Math.min(2.5, Math.max(1, s0 * dist(e.touches) / d0))); }
+    }, { passive: false });
+    cover.addEventListener('touchend', e => { if (e.touches.length < 2) { d0 = 0; if (scale < 1.05) apply(1); } });
+  })();
 
   // ---------- Settings + liquid glass ----------
   const S = { blur: 24, alpha: 45, sat: 180, rad: 22, dist: 18, liquid: false, tint: '255,255,255' };
