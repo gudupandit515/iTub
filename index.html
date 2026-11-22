@@ -257,6 +257,13 @@
     #v-watch .winfo { margin-left: 0; margin-right: 0; border-radius: 0; }
     .watch > div:first-child, .watch > div:last-child { padding-right: 0 !important; }
   }
+  .ctrl { padding: 10px 12px; gap: 6px; bottom: 10px; left: 10px; right: 10px; }
+  .ctrl .seek { font-size: 12px; }
+  .ctrl button { font-size: 16px; padding: 3px 5px; }
+  .ctrl button svg { width: 18px; height: 18px; }
+  .ctrl .vol { display: none; }
+  #fsBtn, #gearBtn { font-size: 18px; }
+  .ctrl .line { gap: 10px; }
 </style>
 </head>
 <body>
@@ -1004,6 +1011,28 @@
       if (e.touches.length === 2 && d0) { e.preventDefault(); apply(Math.min(2.5, Math.max(1, s0 * dist(e.touches) / d0))); }
     }, { passive: false });
     cover.addEventListener('touchend', e => { if (e.touches.length < 2) { d0 = 0; if (scale < 1.05) apply(1); } });
+  })();
+
+  // ---------- Pull down on Home: load a fresh set of videos ----------
+  function refreshHome() {
+    home.gen++; home.list.length = 0; home.seen.clear();
+    home.mode = Math.random() < 0.5 ? 'chart' : 'topics';
+    home.chartToken = null; home.topic = Math.floor(Math.random() * TOPICS.length); home.topicToken = null;
+    home.empty = 0; home.busy = false;
+    $('homeGrid').innerHTML = '';
+    toast('Naye videos aa rahe hain');
+    loadHome();
+  }
+  (function pullRefresh() {
+    const m = $('main'); let y0 = null;
+    m.addEventListener('touchstart', e => {
+      y0 = (m.scrollTop <= 0 && $('v-home').classList.contains('on')) ? e.touches[0].clientY : null;
+    }, { passive: true });
+    m.addEventListener('touchend', e => {
+      if (y0 === null) return;
+      const dy = e.changedTouches[0].clientY - y0; y0 = null;
+      if (dy > 90) refreshHome();
+    }, { passive: true });
   })();
 
   // ---------- Recently watched (shown in Settings) ----------
