@@ -217,6 +217,17 @@
   .sugg .stxt:hover { background: rgba(255,255,255,.25); }
   .sdel { background: none; border: 0; color: var(--sub); font-size: 14px; padding: 6px 10px; cursor: pointer; }
   .sclear { text-align: center; padding: 9px; font-size: 13px; color: var(--accent); cursor: pointer; }
+  .cover, #playerBox { touch-action: none; }
+  #playerBox.pfs { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important;
+    max-height: none !important; aspect-ratio: auto !important; border-radius: 0 !important; z-index: 90 !important; margin: 0 !important; }
+  body.pfs-on { overflow: hidden; }
+  #cmBox { display: none; }
+  #cmBox.open { display: block; }
+  @media (max-width: 899px) {
+    #v-watch { padding-left: 0 !important; padding-right: 0 !important; }
+    .watch > div:first-child #playerBox { position: sticky !important; top: 0; width: 100%; border-radius: 0; }
+    .winfo { border-radius: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -809,12 +820,7 @@
     if (ready) ytp.seekTo(ytp.getDuration() * (e.target.value / 1000), true);
     showControls();
   });
-  $('fsBtn').addEventListener('click', () => {
-    const b = $('playerBox');
-    if (document.fullscreenElement) { document.exitFullscreen(); return; }
-    if (b.requestFullscreen) { b.requestFullscreen().catch(() => {}); return; }
-    toast('Is phone par player ka fullscreen native player mein milega. Settings mein native player on karein.');
-  });
+  $('fsBtn').addEventListener('click', () => toggleFull());
 
   function startTick() {
     if (tick) return;
@@ -827,16 +833,47 @@
     }, 250);
   }
 
-  // Description, views, likes, date and comments under the video
+  // Description, stats, and comments (comments load only when the Comments button is tapped)
   async function loadInfo(id) {
     const box = $('infoBox');
     box.innerHTML = '';
     const stat = el('div', 'infoStats');
     const desc = el('div', 'desc');
-    const cmBox = el('div');
+    const btns = el('div', 'cbtns');
     const more = el('button', 'desc-more', 'More');
+    const cmBtn = el('button', 'desc-more', 'Comments');
+    const cmBox = el('div'); cmBox.id = 'cmBox';
+    btns.append(more, cmBtn);
+    box.append(stat, desc, btns, cmBox);
     more.addEventListener('click', () => { const o = desc.classList.toggle('open'); more.textContent = o ? 'Less' : 'More'; });
-    box.append(stat, desc, more, el('div', 'sec-t', 'Comments'), cmBox);
+    let cmLoaded = false;
+    cmBtn.addEventListener('click', async () => {
+      const open = cmBox.classList.toggle('open');
+      cmBtn.textContent = open ? 'Comments band' : 'Comments';
+      if (!open || cmLoaded) return;
+      cmLoaded = true;
+      cmBox.appendChild(el('div', 'status', 'Comments load ho rahe hain...'));
+      try {
+        const c = await yt('commentThreads', { part: 'snippet', videoId: id, maxResults: 20, order: 'relevance', textFormat: 'plainText' });
+        if (currentId !== id) return;
+        cmBox.innerHTML = '';
+        (c.items || []).forEach(t => {
+          const sn = t.snippet.topLevelComment.snippet;
+          const r = el('div', 'cmt');
+          const img = el('img'); img.alt = ''; img.src = sn.authorProfileImageUrl || '';
+          const bb = el('div');
+          bb.appendChild(el('b', '', sn.authorDisplayName || ''));
+          bb.appendChild(el('span', 'vmeta', '  ' + new Date(sn.publishedAt).toLocaleDateString('hi-IN')));
+          bb.appendChild(el('p', '', sn.textDisplay || ''));
+          r.append(img, bb);
+          cmBox.appendChild(r);
+        });
+        if (!cmBox.children.length) cmBox.appendChild(el('div', 'status', 'Koi comment nahi hai'));
+      } catch (e) {
+        cmBox.innerHTML = '';
+        cmBox.appendChild(el('div', 'status', 'Comments band hain ya load nahi hue'));
+      }
+    });
     if (!KEY.yt) { desc.textContent = 'Settings mein YouTube API key daalein, tab description aur comments dikhenge.'; return; }
     desc.textContent = 'Loading...';
     try {
@@ -847,30 +884,13 @@
         const s = it.statistics || {};
         const likes = s.likeCount ? new Intl.NumberFormat('en-IN', { notation: 'compact' }).format(+s.likeCount) + ' likes' : '';
         const date = it.snippet.publishedAt ? new Date(it.snippet.publishedAt).toLocaleDateString('hi-IN') : '';
-        [views(s.viewCount), likes, date, s.commentCount ? new Intl.NumberFormat('en-IN', { notation: 'compact' }).format(+s.commentCount) + ' comments' : ''].filter(Boolean).forEach(t => stat.appendChild(el('span', '', t)));
+        const cm = s.commentCount ? new Intl.NumberFormat('en-IN', { notation: 'compact' }).format(+s.commentCount) + ' comments' : '';
+        [views(s.viewCount), likes, date, cm].filter(Boolean).forEach(t => stat.appendChild(el('span', '', t)));
         desc.textContent = it.snippet.description || 'Description nahi hai';
       } else {
         desc.textContent = 'Details nahi mil payi';
       }
     } catch (e) { desc.textContent = e.message; }
-    try {
-      const c = await yt('commentThreads', { part: 'snippet', videoId: id, maxResults: 20, order: 'relevance', textFormat: 'plainText' });
-      if (currentId !== id) return;
-      (c.items || []).forEach(t => {
-        const sn = t.snippet.topLevelComment.snippet;
-        const r = el('div', 'cmt');
-        const img = el('img'); img.alt = ''; img.src = sn.authorProfileImageUrl || '';
-        const b = el('div');
-        b.appendChild(el('b', '', sn.authorDisplayName || ''));
-        b.appendChild(el('span', 'vmeta', '  ' + new Date(sn.publishedAt).toLocaleDateString('hi-IN')));
-        b.appendChild(el('p', '', sn.textDisplay || ''));
-        r.append(img, b);
-        cmBox.appendChild(r);
-      });
-      if (!cmBox.children.length) cmBox.appendChild(el('div', 'status', 'Koi comment nahi hai'));
-    } catch (e) {
-      cmBox.appendChild(el('div', 'status', 'Comments band hain ya load nahi hue'));
-    }
   }
 
   // Related: from the feed, then fresh results for the title, all without Shorts
@@ -907,6 +927,33 @@
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
   window.onYouTubeIframeAPIReady = function () { if (currentId) loadPlayer(currentId); };
+
+  // ---------- Fullscreen (real fullscreen where allowed, full-screen player on iPhone) ----------
+  function setPfs(on) {
+    $('playerBox').classList.toggle('pfs', on);
+    document.body.classList.toggle('pfs-on', on);
+  }
+  function toggleFull() {
+    const b = $('playerBox');
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    if (b.classList.contains('pfs')) { setPfs(false); return; }
+    if (document.fullscreenEnabled && b.requestFullscreen) { b.requestFullscreen().catch(() => setPfs(true)); return; }
+    setPfs(true);
+  }
+  (function swipeFull() {
+    const cover = $('cover');
+    let x0 = null, y0 = null, multi = false;
+    cover.addEventListener('touchstart', e => { multi = e.touches.length > 1; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    cover.addEventListener('touchend', e => {
+      if (multi || y0 === null) { y0 = null; return; }
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      y0 = null;
+      if (Math.abs(dy) > 70 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+        if (dy < 0 && !$('playerBox').classList.contains('pfs')) setPfs(true);
+        if (dy > 0 && $('playerBox').classList.contains('pfs')) setPfs(false);
+      }
+    }, { passive: true });
+  })();
 
   // ---------- Pinch to zoom (pinch out to fill the frame) ----------
   (function () {
