@@ -43,7 +43,7 @@
     border-radius: calc(var(--radius) - 4px); }
   .logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-weight: 800; font-size: 19px; white-space: nowrap;
     background: linear-gradient(90deg, var(--accent), #a855f7); -webkit-background-clip: text; background-clip: text; color: transparent;
-    transition: left .55s cubic-bezier(.2,.8,.2,1), transform .55s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+    transition: left .55s cubic-bezier(.2,.8,.2,1), transform .55s cubic-bezier(.2,.8,.2,1); cursor: pointer; }
   header.open .logo { left: 22px; transform: translate(0, -50%); }
   .search { position: absolute; top: 8px; left: calc(100% - 98px); width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center;
     background: var(--glass-strong, rgba(255,255,255,.35)); border: 1px solid rgba(255,255,255,.35); overflow: hidden;
@@ -191,9 +191,9 @@
     background-size: 200% 100%; animation: shimmer 1.4s infinite; }
   @keyframes shimmer { to { background-position: -200% 0; } }
   .sentinel { height: 30px; }
-  .toast { position: fixed; left: 50%; top: 96px; transform: translate(-50%, -160%); z-index: 60; padding: 10px 16px; font-size: 14px;
+  .toast { position: fixed; left: 50%; top: 96px; transform: translate(-50%, -300%); opacity: 0; visibility: hidden; z-index: 60; padding: 10px 16px; font-size: 14px;
     transition: transform .4s cubic-bezier(.2,.8,.2,1); }
-  .toast.show { transform: translate(-50%, 0); }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
   @media (min-width: 900px) { .tabbar { display: none; } main { padding-bottom: 40px; } }
 
   html, body { overflow-x: hidden; }
@@ -209,6 +209,14 @@
     #playerBox { width: 100%; }
     .view { padding-left: 12px; padding-right: 12px; }
   }
+  .search-btn { display: grid; place-items: center; color: var(--ink); }
+  .search input { width: 0; flex: 0 0 0; padding: 0 !important; }
+  header.open .search input { width: auto; flex: 1 1 auto; padding: 0 8px 0 14px !important; }
+  .sugg .srow2 { display: flex; align-items: center; justify-content: space-between; }
+  .sugg .stxt { flex: 1; padding: 9px 12px; cursor: pointer; font-size: 14px; color: var(--ink); border-radius: 10px; }
+  .sugg .stxt:hover { background: rgba(255,255,255,.25); }
+  .sdel { background: none; border: 0; color: var(--sub); font-size: 14px; padding: 6px 10px; cursor: pointer; }
+  .sclear { text-align: center; padding: 9px; font-size: 13px; color: var(--accent); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -225,7 +233,7 @@
   <div class="logo">Gud's Tube</div>
   <div class="search" id="searchBox">
     <input id="q" type="search" placeholder="Koi bhi video search karein" autocomplete="off" enterkeyhint="search">
-    <button class="search-btn" id="sBtn" title="Search">&#128269;&#xFE0E;</button>
+    <button class="search-btn" id="sBtn" title="Search"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
   </div>
   <div class="sugg glass" id="sugg"></div>
   <button class="icon-btn" id="openSettings" title="Settings">&#9881;&#xFE0E;</button>
@@ -309,8 +317,12 @@
   <div class="title" style="margin:4px 0 0">Settings</div>
 
   <h3>YouTube API key</h3>
-  <p>Key sirf is page ki memory mein rehti hai, refresh par dobara daalni padegi. Google Cloud mein YouTube Data API v3 enabled honi chahiye.</p>
+  <p>Ek baar daalein, ye is browser mein save rahegi.</p>
   <input class="field" id="ytKey" type="password" placeholder="AIza...">
+  <button class="btn" id="saveKey" style="width:100%">Save & Load</button>
+
+  <h3>Player</h3>
+  <div class="switch"><span>YouTube native player (quality aur fullscreen ke liye)</span><input type="checkbox" id="sNative"></div>
 
   <h3>Liquid glass</h3>
   <div class="srow"><label>Blur</label><input type="range" id="sBlur" min="0" max="60" value="24"><output id="oBlur">24</output></div>
@@ -318,7 +330,6 @@
   <div class="srow"><label>Saturation</label><input type="range" id="sSat" min="100" max="260" value="180"><output id="oSat">180</output></div>
   <div class="srow"><label>Corner radius</label><input type="range" id="sRad" min="0" max="40" value="22"><output id="oRad">22</output></div>
   <div class="srow"><label>Liquid strength</label><input type="range" id="sDist" min="0" max="60" value="18"><output id="oDist">18</output></div>
-  <div class="switch"><span>YouTube native player (quality aur speed ke liye)</span><input type="checkbox" id="sNative"></div>
   <div class="switch"><span>Liquid distortion (Chrome/Edge)</span><input type="checkbox" id="sLiquid"></div>
   <div class="switch"><span>Tint</span>
     <div class="swatches" id="swatches">
@@ -329,10 +340,11 @@
       <button data-c="60,220,160" style="background:#3cdca0" title="Mint"></button>
     </div>
   </div>
-  <div style="display:flex;gap:10px;margin-top:14px">
-    <button class="btn ghost" id="resetGlass" style="flex:1">Reset glass</button>
-    <button class="btn" id="saveKey" style="flex:1">Save & Load</button>
-  </div>
+  <button class="btn ghost" id="resetGlass" style="width:100%">Reset glass</button>
+
+  <h3>Recently dekha</h3>
+  <div id="watchedList"></div>
+  <button class="btn ghost" id="clearWatched" style="width:100%;margin-top:8px">History clear karein</button>
 </div>
 
 <div class="toast glass" id="toast"></div>
@@ -345,7 +357,7 @@
   const NATIVE = { on: false };
   try {
     const saved = localStorage.getItem('gudstube_native');
-    NATIVE.on = saved === null ? window.innerWidth < 900 : saved === '1';
+    NATIVE.on = saved === '1';
   } catch (e) {}
   try { KEY.yt = localStorage.getItem(KEY_NAME) || ''; } catch (e) {}
 
@@ -495,30 +507,51 @@
       $('searchMsg').innerHTML = '<span class="err">' + e.message + '</span>';
     }
   }
-  // ---------- Search bar: hidden behind an icon, opens with animation, shows suggestions ----------
+  // ---------- Search bar: icon opens it, last 5 searches + YouTube suggestions ----------
   const hdr = document.querySelector('header');
-  function openSearch() { hdr.classList.add('open'); setTimeout(() => $('q').focus(), 250); }
+  const HIST_KEY = 'gudstube_search_hist';
+  const WATCH_KEY = 'gudstube_watched';
+  function readJSON(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
+  function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  let ytSug = [];
+  function getHist() { return readJSON(HIST_KEY); }
+  function addHist(q) { writeJSON(HIST_KEY, [q, ...getHist().filter(x => x !== q)].slice(0, 5)); }
+  function openSearch() { hdr.classList.add('open'); setTimeout(() => $('q').focus(), 250); renderSugg(); }
   function closeSearch() { hdr.classList.remove('open'); $('sugg').classList.remove('show'); $('q').blur(); }
-  function searchNow(q) { closeSearch(); $('q').value = q; doSearch(q); }
-  $('sBtn').addEventListener('click', e => {
-    e.stopPropagation();
-    if (!hdr.classList.contains('open')) { openSearch(); return; }
-    const q = $('q').value.trim();
-    if (q) searchNow(q); else closeSearch();
-  });
-  document.addEventListener('click', e => { if (hdr.classList.contains('open') && !hdr.contains(e.target)) closeSearch(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); });
-
-  let sugTimer = null;
-  window.gtSug = data => {
-    const list = ((data && data[1]) || []).map(x => Array.isArray(x) ? x[0] : x).slice(0, 8);
-    const box = $('sugg'); box.innerHTML = '';
-    list.forEach(s => {
+  function searchNow(q) {
+    q = q.trim(); if (!q) return;
+    addHist(q); closeSearch(); $('q').value = q; doSearch(q);
+  }
+  function renderSugg() {
+    const box = $('sugg');
+    const typed = $('q').value.trim().toLowerCase();
+    const hist = getHist().filter(x => !typed || x.toLowerCase().includes(typed));
+    const yt = typed ? ytSug.filter(x => !hist.includes(x)) : [];
+    box.innerHTML = '';
+    hist.forEach(s => {
+      const row = document.createElement('div'); row.className = 'srow2';
+      const t = document.createElement('span'); t.className = 'stxt'; t.textContent = '\u{1F551}  ' + s;
+      const x = document.createElement('button'); x.className = 'sdel'; x.textContent = '\u2715'; x.title = 'Delete';
+      t.addEventListener('click', () => searchNow(s));
+      x.addEventListener('click', e => { e.stopPropagation(); writeJSON(HIST_KEY, getHist().filter(y => y !== s)); renderSugg(); });
+      row.append(t, x); box.appendChild(row);
+    });
+    yt.slice(0, 6).forEach(s => {
       const d = document.createElement('div'); d.textContent = s;
       d.addEventListener('click', () => searchNow(s));
       box.appendChild(d);
     });
-    box.classList.toggle('show', list.length > 0 && hdr.classList.contains('open'));
+    if (hist.length) {
+      const c = document.createElement('div'); c.className = 'sclear'; c.textContent = 'Sab search history delete karein';
+      c.addEventListener('click', e => { e.stopPropagation(); writeJSON(HIST_KEY, []); renderSugg(); });
+      box.appendChild(c);
+    }
+    box.classList.toggle('show', box.children.length > 0 && hdr.classList.contains('open'));
+  }
+  let sugTimer = null;
+  window.gtSug = data => {
+    ytSug = ((data && data[1]) || []).map(x => Array.isArray(x) ? x[0] : x).slice(0, 8);
+    renderSugg();
   };
   function fetchSuggestions(q) {
     const s = document.createElement('script');
@@ -527,19 +560,27 @@
     document.body.appendChild(s);
     setTimeout(() => s.remove(), 4000);
   }
-  $('q').addEventListener('input', e => {
-    clearTimeout(sugTimer);
-    const q = e.target.value.trim();
-    if (!q) { $('sugg').classList.remove('show'); return; }
-    sugTimer = setTimeout(() => fetchSuggestions(q), 200);
+  $('sBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    if (!hdr.classList.contains('open')) { openSearch(); return; }
+    const q = $('q').value.trim();
+    if (q) searchNow(q); else closeSearch();
   });
+  $('q').addEventListener('focus', renderSugg);
+  $('q').addEventListener('input', e => {
+    clearTimeout(sugTimer); renderSugg();
+    const q = e.target.value.trim();
+    if (q) sugTimer = setTimeout(() => fetchSuggestions(q), 200); else ytSug = [];
+  });
+  document.addEventListener('click', e => { if (hdr.classList.contains('open') && !hdr.contains(e.target)) closeSearch(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); });
 
   $('q').addEventListener('keydown', e => {
     if (e.key === 'Enter') { const q = e.target.value.trim(); if (q) searchNow(q); }
   });
 
   // ---------- Shorts: endless feed of short clips only ----------
-  const SHORT_TOPICS = ['music', 'hindi', 'english song', 'dance', 'comedy', 'lofi', 'trending', 'pop', 'hip hop', 'rock'];
+  const SHORT_TOPICS = ['shorts', 'shorts hindi', 'shorts funny', 'shorts music', 'shorts dance', 'shorts cricket', 'shorts comedy', 'shorts food'];
   const shorts = { list: [], seen: new Set(), topic: 0, token: null, busy: false, gen: 0, empty: 0 };
 
   async function fetchShortsPage() {
@@ -587,7 +628,12 @@
   // ---------- Watch page ----------
   let ytp = null, ready = false, currentId = null, relatedList = [], uiTimer = null, tick = null, seeking = false;
 
+  function addWatched(v) {
+    writeJSON(WATCH_KEY, [{ id: v.id, title: v.title, channel: v.channel, thumb: v.thumb }, ...readJSON(WATCH_KEY).filter(x => x.id !== v.id)].slice(0, 30));
+  }
   function openWatch(v, list) {
+    openSettings(false);
+    addWatched(v);
     currentId = v.id;
     showView('watch');
     $('wTitle').textContent = v.title;
@@ -604,10 +650,18 @@
     if (!ytp) {
       ytp = new YT.Player('player', {
         videoId: id,
-        playerVars: { controls: NATIVE.on ? 1 : 0, rel: 0, playsinline: 1, modestbranding: 1, fs: NATIVE.on ? 1 : 0, disablekb: NATIVE.on ? 0 : 1, iv_load_policy: 3,
+        playerVars: { autoplay: 1, controls: NATIVE.on ? 1 : 0, rel: 0, playsinline: 1, modestbranding: 1, fs: NATIVE.on ? 1 : 0, disablekb: NATIVE.on ? 0 : 1, iv_load_policy: 3,
           ...(location.protocol.startsWith('http') ? { origin: location.origin } : {}) },
         events: {
-          onReady: () => { ready = true; ytp.setVolume(+$('vol').value); startTick(); },
+          onReady: () => {
+            ready = true; ytp.setVolume(+$('vol').value); startTick();
+            ytp.playVideo();
+            // If the phone blocks sound autoplay, start muted and ask for one tap
+            setTimeout(() => {
+              const st = ytp.getPlayerState();
+              if (st !== 1 && st !== 3) { ytp.mute(); ytp.playVideo(); toast('Awaaz ke liye ek baar screen par tap karein'); }
+            }, 1500);
+          },
           onStateChange: e => {
             setPlayIcon(e.data === 1);
             if (e.data === 1) showControls(false, true);
@@ -696,6 +750,13 @@
   }
   function renderMenu() {
     const m = $('qmenu'); m.innerHTML = '';
+    if (!NATIVE.on) {
+      m.appendChild(el('div', 'qh', 'Custom player mein YouTube quality nahi badalta'));
+      m.appendChild(menuItem('YouTube native player par jayein', false, () => {
+        $('sNative').checked = true; $('sNative').dispatchEvent(new Event('change')); toggleMenu(false);
+      }));
+      return;
+    }
     if (!ready) { m.appendChild(el('div', 'qh', 'Player abhi load ho raha hai')); return; }
     const levels = ytp.getAvailableQualityLevels() || [];
     const curQ = ytp.getPlaybackQuality() || 'default';
@@ -861,6 +922,15 @@
     cover.addEventListener('touchend', e => { if (e.touches.length < 2) { d0 = 0; if (scale < 1.05) apply(1); } });
   })();
 
+  // ---------- Recently watched (shown in Settings) ----------
+  function renderWatched() {
+    const box = $('watchedList'); box.innerHTML = '';
+    const items = readJSON(WATCH_KEY);
+    if (!items.length) { box.appendChild(el('div', 'status', 'Abhi koi video nahi dekha')); return; }
+    items.forEach((v, i) => box.appendChild(sideRow(v, i, items)));
+  }
+  $('clearWatched').addEventListener('click', () => { writeJSON(WATCH_KEY, []); renderWatched(); toast('History clear ho gayi'); });
+
   // ---------- Settings + liquid glass ----------
   const S = { blur: 24, alpha: 45, sat: 180, rad: 22, dist: 18, liquid: false, tint: '255,255,255' };
   const root = document.documentElement.style;
@@ -905,7 +975,7 @@
   }
   document.querySelector('header .logo').addEventListener('click', goHome);
 
-  function openSettings(open) { $('sheet').classList.toggle('open', open); $('sheetBg').classList.toggle('open', open); }
+  function openSettings(open) { $('sheet').classList.toggle('open', open); $('sheetBg').classList.toggle('open', open); if (open) renderWatched(); }
   $('openSettings').addEventListener('click', () => openSettings(true));
   $('sheetBg').addEventListener('click', () => openSettings(false));
   $('saveKey').addEventListener('click', () => {
