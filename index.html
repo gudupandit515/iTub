@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Gud's Tube</title>
 <style>
@@ -243,6 +243,20 @@
   .ctrl .seekbar { height: 8px; }
   .ctrl .line { gap: 14px; }
   #fsBtn, #gearBtn { font-size: 28px; }
+  html, body { touch-action: pan-x pan-y; }
+  .cover, #playerBox { touch-action: none; }
+  /* Controls stay inside the player; buttons keep a sane size */
+  .ctrl .line { flex-wrap: wrap; justify-content: center; }
+  .ctrl button { font-size: 20px; padding: 4px 8px; }
+  .ctrl button svg { width: 22px; height: 22px; }
+  .ctrl .vol { width: 100px; }
+  .ctrl .spacer { display: none; }
+  /* Watch screen on phones: no side gap */
+  @media (max-width: 899px) {
+    body.watching main { padding-left: 0 !important; padding-right: 0 !important; }
+    #v-watch .winfo { margin-left: 0; margin-right: 0; border-radius: 0; }
+    .watch > div:first-child, .watch > div:last-child { padding-right: 0 !important; }
+  }
 </style>
 </head>
 <body>
@@ -663,7 +677,7 @@
     addWatched(v);
     currentId = v.id;
     $('pauseImg').src = 'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg';
-    setPauseOv(2);
+    setPauseOv(-1);
     const wr = document.querySelector('.ytwrap'); if (wr) wr.style.transform = '';
     showView('watch');
     $('wTitle').textContent = v.title;
@@ -949,17 +963,18 @@
   window.onYouTubeIframeAPIReady = function () { if (currentId) loadPlayer(currentId); };
 
   let userMuted = false;
-  function setPauseOv(st) { $('pauseOv').classList.toggle('show', st !== 1 && st !== 3); }
+  function setPauseOv(st) { $('pauseOv').classList.toggle('show', st === 2); }
   // ---------- Fullscreen (real fullscreen where allowed, full-screen player on iPhone) ----------
   function setPfs(on) {
     $('playerBox').classList.toggle('pfs', on);
     document.body.classList.toggle('pfs-on', on);
   }
+  const isPhone = () => window.innerWidth < 900 || window.matchMedia('(pointer:coarse)').matches;
   function toggleFull() {
     const b = $('playerBox');
     if (document.fullscreenElement) { document.exitFullscreen(); return; }
     if (b.classList.contains('pfs')) { setPfs(false); return; }
-    if (document.fullscreenEnabled && b.requestFullscreen) { b.requestFullscreen().catch(() => setPfs(true)); return; }
+    if (!isPhone() && document.fullscreenEnabled && b.requestFullscreen) { b.requestFullscreen().catch(() => setPfs(true)); return; }
     setPfs(true);
   }
   (function swipeFull() {
