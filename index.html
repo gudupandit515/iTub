@@ -283,6 +283,7 @@
   /* Fullscreen on a portrait phone: turned to landscape, like YouTube */
   .watch > div:first-child #playerBox.pfs.land { inset: auto !important; top: 0 !important; left: 0 !important; width: 100vh !important; height: 100vw !important;
     transform: translateX(100vw) rotate(90deg) !important; transform-origin: top left !important; }
+  body.pfs-on header, body.pfs-on .tabbar, body.pfs-on .mini, body.pfs-on .toast { display: none !important; }
 </style>
 </head>
 <body>
@@ -776,14 +777,6 @@
     }
     const wantPlay = ytp.getPlayerState() !== 1;
     if (wantPlay) ytp.playVideo(); else ytp.pauseVideo();
-    setTimeout(() => {
-      const st = ytp.getPlayerState();
-      // 3 = buffering, which is still a valid response to play
-      const ok = wantPlay ? (st === 1 || st === 3) : (st !== 1);
-      if (!ok) {
-        toast('Player command ka jawab nahi de raha. Page ko http://localhost par chalayein (python -m http.server 8000)');
-      }
-    }, 4000);
   }
 
   // Controls auto-hide while playing, reappear on tap or mouse move
@@ -791,7 +784,7 @@
     $('ctrl').classList.remove('hide');
     clearTimeout(uiTimer);
     if (autoHide !== false && !keepShown) {
-      uiTimer = setTimeout(() => { if (ready && ytp.getPlayerState() === 1 && !menuHover) { $('ctrl').classList.add('hide'); toggleMenu(false); } }, 3000);
+      uiTimer = setTimeout(() => { if (ready && (ytp.getPlayerState() === 1 || $('playerBox').classList.contains('pfs')) && !menuHover) { $('ctrl').classList.add('hide'); toggleMenu(false); } }, 3000);
     }
   }
   if (true) {
@@ -1021,6 +1014,7 @@
   function setPauseOv(st) { $('pauseOv').classList.toggle('show', st === 2); }
   // ---------- Fullscreen (real fullscreen where allowed, full-screen player on iPhone) ----------
   function setPfs(on) {
+    if (on) showControls();
     $('playerBox').classList.toggle('pfs', on);
     $('playerBox').classList.toggle('land', on && window.innerHeight > window.innerWidth);
     document.body.classList.toggle('pfs-on', on);
