@@ -264,6 +264,20 @@
   .ctrl .vol { display: none; }
   #fsBtn, #gearBtn { font-size: 18px; }
   .ctrl .line { gap: 10px; }
+  .tabbar { display: none !important; }
+  .menu-btn { position: absolute; left: 0; top: 8px; width: 40px; height: 40px; font-size: 20px; }
+  header.open .logo { left: 60px; }
+  .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.28); z-index: 44; opacity: 0; pointer-events: none; transition: opacity .35s; }
+  .drawer-scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 78%); z-index: 45; padding: calc(env(safe-area-inset-top) + 84px) 16px 24px;
+    border-radius: 0 28px 28px 0; transform: translateX(-110%); transition: transform .55s cubic-bezier(.2,.8,.2,1); }
+  .drawer.open { transform: none; }
+  .dtab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; margin: 8px 0; border: 1px solid rgba(255,255,255,.4);
+    border-radius: 18px; background: rgba(255,255,255,.28); color: var(--ink); font-size: 16px; font-weight: 600; cursor: pointer;
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); transition: transform .2s, background .3s; }
+  .dtab:active { transform: scale(.97); }
+  .dtab.on { background: var(--accent); color: #fff; }
+  .dtab .ic { font-size: 18px; width: 24px; text-align: center; }
 </style>
 </head>
 <body>
@@ -277,6 +291,7 @@
 </svg>
 
 <header class="glass">
+  <button class="icon-btn menu-btn" id="menuBtn" title="Menu">&#9776;&#xFE0E;</button>
   <div class="logo">Gud's Tube</div>
   <div class="search" id="searchBox">
     <input id="q" type="search" placeholder="Koi bhi video search karein" autocomplete="off" enterkeyhint="search">
@@ -359,6 +374,13 @@
   <button class="tab" data-v="watch"><span class="ic">&#9654;&#xFE0E;</span>Watch</button>
 </nav>
 
+<div class="drawer-scrim" id="drawerScrim"></div>
+<nav class="drawer glass" id="drawer">
+  <button class="dtab on" data-v="home"><span class="ic">&#8962;</span>Home</button>
+  <button class="dtab" data-v="shorts"><span class="ic">&#9889;&#xFE0E;</span>Shorts</button>
+  <button class="dtab" data-v="search"><span class="ic">&#128269;&#xFE0E;</span>Search</button>
+  <button class="dtab" data-v="watch"><span class="ic">&#9654;&#xFE0E;</span>Watch</button>
+</nav>
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet glass" id="sheet">
   <div class="grab"></div>
@@ -1016,13 +1038,21 @@
   // ---------- Pull down on Home: load a fresh set of videos ----------
   function refreshHome() {
     home.gen++; home.list.length = 0; home.seen.clear();
-    home.mode = Math.random() < 0.5 ? 'chart' : 'topics';
+    home.mode = 'topics';   // the chart always returns the same list, so refresh uses topic searches
     home.chartToken = null; home.topic = Math.floor(Math.random() * TOPICS.length); home.topicToken = null;
     home.empty = 0; home.busy = false;
     $('homeGrid').innerHTML = '';
     toast('Naye videos aa rahe hain');
     loadHome();
   }
+  (function refreshButton() {
+    const rb = document.createElement('button');
+    rb.className = 'btn ghost';
+    rb.textContent = '\u21BB  Naye videos';
+    rb.style.margin = '0 4px 12px';
+    rb.addEventListener('click', refreshHome);
+    $('homeGrid').before(rb);
+  })();
   (function pullRefresh() {
     const m = $('main'); let y0 = null;
     m.addEventListener('touchstart', e => {
@@ -1033,6 +1063,19 @@
       const dy = e.changedTouches[0].clientY - y0; y0 = null;
       if (dy > 90) refreshHome();
     }, { passive: true });
+  })();
+
+  // ---------- Side drawer with liquid-glass tabs ----------
+  (function drawer() {
+    const d = $('drawer'), s = $('drawerScrim');
+    const open = on => { d.classList.toggle('open', on); s.classList.toggle('open', on); };
+    $('menuBtn').addEventListener('click', e => { e.stopPropagation(); open(true); });
+    s.addEventListener('click', () => open(false));
+    d.querySelectorAll('.dtab').forEach(b => b.addEventListener('click', () => {
+      showView(b.dataset.v);
+      d.querySelectorAll('.dtab').forEach(x => x.classList.toggle('on', x === b));
+      open(false);
+    }));
   })();
 
   // ---------- Recently watched (shown in Settings) ----------
