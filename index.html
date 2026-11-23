@@ -264,20 +264,25 @@
   .ctrl .vol { display: none; }
   #fsBtn, #gearBtn { font-size: 18px; }
   .ctrl .line { gap: 10px; }
-  .tabbar { display: none !important; }
-  .menu-btn { position: absolute; left: 0; top: 8px; width: 40px; height: 40px; font-size: 20px; }
-  header.open .logo { left: 60px; }
-  .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.28); z-index: 44; opacity: 0; pointer-events: none; transition: opacity .35s; }
-  .drawer-scrim.open { opacity: 1; pointer-events: auto; }
-  .drawer { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 78%); z-index: 45; padding: calc(env(safe-area-inset-top) + 84px) 16px 24px;
-    border-radius: 0 28px 28px 0; transform: translateX(-110%); transition: transform .55s cubic-bezier(.2,.8,.2,1); }
-  .drawer.open { transform: none; }
-  .dtab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; margin: 8px 0; border: 1px solid rgba(255,255,255,.4);
-    border-radius: 18px; background: rgba(255,255,255,.28); color: var(--ink); font-size: 16px; font-weight: 600; cursor: pointer;
-    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); transition: transform .2s, background .3s; }
-  .dtab:active { transform: scale(.97); }
-  .dtab.on { background: var(--accent); color: #fff; }
-  .dtab .ic { font-size: 18px; width: 24px; text-align: center; }
+  .tabbar .tab { position: relative; z-index: 1; }
+  .tab.on { background: transparent !important; }
+  .tpill { position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 4); border-radius: 22px; z-index: 0;
+    background: rgba(255,255,255,.42); border: 1px solid rgba(255,255,255,.6);
+    -webkit-backdrop-filter: blur(18px) saturate(190%); backdrop-filter: blur(18px) saturate(190%);
+    box-shadow: 0 6px 18px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.7);
+    transition: transform .6s cubic-bezier(.34,1.3,.5,1); }
+  @keyframes slR { from { opacity: 0; transform: translateX(70px) scale(.97); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes slL { from { opacity: 0; transform: translateX(-70px) scale(.97); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+  .view.on.sl-r { animation: slR .5s cubic-bezier(.2,.8,.2,1) both; }
+  .view.on.sl-l { animation: slL .5s cubic-bezier(.2,.8,.2,1) both; }
+  .seekflash { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5; color: #fff; background: rgba(0,0,0,.45);
+    padding: 10px 16px; border-radius: 999px; font-size: 15px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .seekflash.show { opacity: 1; }
+  .seekflash.l { left: 14%; }
+  .seekflash.r { right: 14%; }
+  /* Fullscreen on a portrait phone: turned to landscape, like YouTube */
+  .watch > div:first-child #playerBox.pfs.land { inset: auto !important; top: 0 !important; left: 0 !important; width: 100vh !important; height: 100vw !important;
+    transform: translateX(100vw) rotate(90deg) !important; transform-origin: top left !important; }
 </style>
 </head>
 <body>
@@ -291,7 +296,6 @@
 </svg>
 
 <header class="glass">
-  <button class="icon-btn menu-btn" id="menuBtn" title="Menu">&#9776;&#xFE0E;</button>
   <div class="logo">Gud's Tube</div>
   <div class="search" id="searchBox">
     <input id="q" type="search" placeholder="Koi bhi video search karein" autocomplete="off" enterkeyhint="search">
@@ -327,6 +331,7 @@
       <div>
         <div class="player-box glass" id="playerBox">
           <div class="ytwrap"><div id="player"></div></div>
+          <div class="seekflash" id="seekFlash"></div>
           <div class="pauseov" id="pauseOv"><img id="pauseImg" alt=""><div class="big">&#9654;</div></div>
           <div class="cover" id="cover"></div>
           <div class="player-msg" id="playerMsg"></div>
@@ -368,19 +373,13 @@
 </main>
 
 <nav class="tabbar glass">
+  <div class="tpill" id="tpill"></div>
   <button class="tab on" data-v="home"><span class="ic">&#8962;</span>Home</button>
   <button class="tab" data-v="shorts"><span class="ic">&#9889;&#xFE0E;</span>Shorts</button>
   <button class="tab" data-v="search"><span class="ic">&#128269;&#xFE0E;</span>Search</button>
   <button class="tab" data-v="watch"><span class="ic">&#9654;&#xFE0E;</span>Watch</button>
 </nav>
 
-<div class="drawer-scrim" id="drawerScrim"></div>
-<nav class="drawer glass" id="drawer">
-  <button class="dtab on" data-v="home"><span class="ic">&#8962;</span>Home</button>
-  <button class="dtab" data-v="shorts"><span class="ic">&#9889;&#xFE0E;</span>Shorts</button>
-  <button class="dtab" data-v="search"><span class="ic">&#128269;&#xFE0E;</span>Search</button>
-  <button class="dtab" data-v="watch"><span class="ic">&#9654;&#xFE0E;</span>Watch</button>
-</nav>
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet glass" id="sheet">
   <div class="grab"></div>
@@ -488,9 +487,19 @@
   }
 
   // ---------- views ----------
+  let lastView = 'home';
+  const TAB_ORDER = ['home', 'shorts', 'search', 'watch'];
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + name));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.v === name));
+    const idx = TAB_ORDER.indexOf(name);
+    $('tpill').style.transform = 'translateX(' + (idx * 100) + '%)';
+    if (name !== lastView && idx >= 0) {
+      const dir = idx >= TAB_ORDER.indexOf(lastView) ? 'r' : 'l';
+      const nv = $('v-' + name);
+      nv.classList.remove('sl-r', 'sl-l'); void nv.offsetWidth; nv.classList.add('sl-' + dir);
+    }
+    lastView = name;
     $('main').scrollTop = 0;
     document.body.classList.toggle('watching', name === 'watch');
     if (name === 'shorts' && !shorts.list.length && !shorts.busy) loadShorts();
@@ -792,7 +801,24 @@
     $('ctrl').addEventListener('mousemove', e => e.stopPropagation());
   }
 
-  $('cover').addEventListener('click', () => { togglePlay(); showControls(); });
+  let lastTap = 0, tapTimer = null;
+  function flashSeek(side) {
+    const f = $('seekFlash');
+    f.textContent = side < 0 ? '\u00AB 10 sec' : '10 sec \u00BB';
+    f.className = 'seekflash show ' + (side < 0 ? 'l' : 'r');
+    clearTimeout(flashSeek._t); flashSeek._t = setTimeout(() => { f.className = 'seekflash'; }, 600);
+  }
+  $('cover').addEventListener('click', e => {
+    const now = Date.now();
+    const r = $('cover').getBoundingClientRect();
+    const side = e.clientX < r.left + r.width / 2 ? -1 : 1;
+    if (now - lastTap < 320) {
+      clearTimeout(tapTimer); lastTap = 0;
+      seekBy(side * 10); flashSeek(side); return;
+    }
+    lastTap = now;
+    tapTimer = setTimeout(() => { togglePlay(); showControls(); }, 320);
+  });
   $('playBtn').addEventListener('click', () => { togglePlay(); showControls(); });
   function seekBy(sec) {
     if (!ready) { toast('Player abhi load ho raha hai'); return; }
@@ -996,6 +1022,7 @@
   // ---------- Fullscreen (real fullscreen where allowed, full-screen player on iPhone) ----------
   function setPfs(on) {
     $('playerBox').classList.toggle('pfs', on);
+    $('playerBox').classList.toggle('land', on && window.innerHeight > window.innerWidth);
     document.body.classList.toggle('pfs-on', on);
   }
   const isPhone = () => window.innerWidth < 900 || window.matchMedia('(pointer:coarse)').matches;
@@ -1063,19 +1090,6 @@
       const dy = e.changedTouches[0].clientY - y0; y0 = null;
       if (dy > 90) refreshHome();
     }, { passive: true });
-  })();
-
-  // ---------- Side drawer with liquid-glass tabs ----------
-  (function drawer() {
-    const d = $('drawer'), s = $('drawerScrim');
-    const open = on => { d.classList.toggle('open', on); s.classList.toggle('open', on); };
-    $('menuBtn').addEventListener('click', e => { e.stopPropagation(); open(true); });
-    s.addEventListener('click', () => open(false));
-    d.querySelectorAll('.dtab').forEach(b => b.addEventListener('click', () => {
-      showView(b.dataset.v);
-      d.querySelectorAll('.dtab').forEach(x => x.classList.toggle('on', x === b));
-      open(false);
-    }));
   })();
 
   // ---------- Recently watched (shown in Settings) ----------
