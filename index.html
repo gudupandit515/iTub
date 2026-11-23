@@ -284,6 +284,7 @@
   .watch > div:first-child #playerBox.pfs.land { inset: auto !important; top: 0 !important; left: 0 !important; width: 100vh !important; height: 100vw !important;
     transform: translateX(100vw) rotate(90deg) !important; transform-origin: top left !important; }
   body.pfs-on header, body.pfs-on .tabbar, body.pfs-on .mini, body.pfs-on .toast { display: none !important; }
+  .ctrl .seekbar { height: 30px; touch-action: none; }
 </style>
 </head>
 <body>
@@ -794,6 +795,19 @@
     $('ctrl').addEventListener('mousemove', e => e.stopPropagation());
   }
 
+  (function seekDrag() {
+    const s = $('seekbar'); let drag = false;
+    const pct = e => { const r = s.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+    const show = p => { s.value = p * 1000; $('cur').textContent = fmt(p * (ready ? ytp.getDuration() : 0)); };
+    s.addEventListener('pointerdown', e => { drag = true; seeking = true; s.setPointerCapture(e.pointerId); show(pct(e)); });
+    s.addEventListener('pointermove', e => { if (drag) show(pct(e)); });
+    s.addEventListener('pointerup', e => {
+      if (!drag) return; drag = false; seeking = false;
+      if (ready) ytp.seekTo(ytp.getDuration() * pct(e), true);
+      showControls();
+    });
+    s.addEventListener('pointercancel', () => { drag = false; seeking = false; });
+  })();
   let lastTap = 0, tapTimer = null;
   function flashSeek(side) {
     const f = $('seekFlash');
@@ -1016,7 +1030,7 @@
   function setPfs(on) {
     if (on) showControls();
     $('playerBox').classList.toggle('pfs', on);
-    $('playerBox').classList.toggle('land', on && window.innerHeight > window.innerWidth);
+    $('playerBox').classList.remove('land');
     document.body.classList.toggle('pfs-on', on);
   }
   const isPhone = () => window.innerWidth < 900 || window.matchMedia('(pointer:coarse)').matches;
@@ -1066,23 +1080,28 @@
     toast('Naye videos aa rahe hain');
     loadHome();
   }
-  (function refreshButton() {
-    const rb = document.createElement('button');
-    rb.className = 'btn ghost';
-    rb.textContent = '\u21BB  Naye videos';
-    rb.style.margin = '0 4px 12px';
-    rb.addEventListener('click', refreshHome);
-    $('homeGrid').before(rb);
-  })();
   (function pullRefresh() {
-    const m = $('main'); let y0 = null;
+    const m = $('main'); let y0 = null, pulled = 0;
+    const ind = document.createElement('div');
+    ind.className = 'glass';
+    ind.textContent = '\u21BB  Naye videos';
+    ind.style.cssText = 'position:fixed;left:50%;top:76px;padding:8px 14px;border-radius:999px;font-size:13px;z-index:30;pointer-events:none;transform:translate(-50%,-150%);transition:transform .3s;';
+    document.body.appendChild(ind);
     m.addEventListener('touchstart', e => {
-      y0 = (m.scrollTop <= 0 && $('v-home').classList.contains('on')) ? e.touches[0].clientY : null;
+      y0 = (m.scrollTop <= 0 && $('v-home').classList.contains('on')) ? e.touches[0].clientY : null; pulled = 0;
     }, { passive: true });
-    m.addEventListener('touchend', e => {
+    m.addEventListener('touchmove', e => {
       if (y0 === null) return;
-      const dy = e.changedTouches[0].clientY - y0; y0 = null;
-      if (dy > 90) refreshHome();
+      pulled = Math.max(0, e.touches[0].clientY - y0);
+      ind.style.transition = 'none';
+      ind.style.transform = 'translate(-50%,' + Math.min(pulled * 0.5 - 30, 40) + 'px)';
+    }, { passive: true });
+    m.addEventListener('touchend', () => {
+      const go = y0 !== null && pulled > 70;
+      y0 = null;
+      ind.style.transition = 'transform .3s';
+      ind.style.transform = 'translate(-50%,-150%)';
+      if (go) refreshHome();
     }, { passive: true });
   })();
 
